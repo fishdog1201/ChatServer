@@ -1,6 +1,10 @@
 #include "chat_server.hpp"
+#include "chat_service.hpp"
+#include "json.hpp"
 #include <functional>
+#include <string>
 
+using json = nlohmann::json;
 
 ChatServer::ChatServer(muduo::net::EventLoop* loop,
             const muduo::net::InetAddress& listenAddr,
@@ -18,10 +22,20 @@ void ChatServer::start()
     _server.start();
 }
 
-void ChatServer::onConnection(const muduo::net::TcpConnectionPtr& )
-{}
+void ChatServer::onConnection(const muduo::net::TcpConnectionPtr& conn)
+{
+    if (!conn->connected()) {
+        conn->shutdown();
+    }
+}
 
-void ChatServer::onMessage(const muduo::net::TcpConnectionPtr&,
-                           muduo::net::Buffer*,
-                           muduo::Timestamp)
-{}
+void ChatServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
+                           muduo::net::Buffer* buffer,
+                           muduo::Timestamp time)
+{
+    std::string buf = buffer->retrieveAllAsString();
+    json js = json::parse(buf);
+
+    auto msgHandler = ChatService::instance()->getHandler(js["msgId"].get<int>());
+    msgHandler(conn, js, time);
+}
