@@ -35,5 +35,23 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
 
 void ChatService::reg(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
 {
-    LOG_INFO << "Reg service";
+    std::string name = js["name"];
+    std::string pwd = js["password"];
+    json reponse;
+
+    User user;
+    user.setName(name);
+    user.setPwd(pwd);
+    bool state = _userModel.insert(user);
+    
+    if (state) {
+        reponse["msgid"] = REG_MSG_ACK;
+        reponse["errno"] = 0;
+        reponse["id"] = user.getId();
+        conn->send(reponse.dump());
+    } else {
+        reponse["msgid"] = REG_MSG_ACK;
+        reponse["errno"] = 1;
+        conn->send(reponse.dump());
+    }
 }

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <functional>
 #include "json.hpp"
+#include "user_model.hpp"
 
 using json = nlohmann::json;
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr&, json&, muduo::Timestamp)>;
@@ -22,4 +23,5 @@ public:
     MsgHandler getHandler(int msgID);
 private:
     std::unordered_map<int, MsgHandler> _msgHandlerMap;
+    UserModel _userModel;
 };

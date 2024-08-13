@@ -18,8 +18,13 @@ bool MySQL::connect()
     MYSQL* p = mysql_real_connect(_conn, server.c_str(), user.c_str(),
                                       password.c_str(), dbname.c_str(), 3306, nullptr, 0);
     if (p == nullptr) {
-        mysql_query(_conn, "set names gbk");
+        LOG_INFO << "connect mysql falied.";
+        fprintf(stderr, "Failed to connect to database: Error: %s\n",
+          mysql_error(_conn));
+        return p;
     }
+    mysql_query(_conn, "set names gbk");
+    LOG_INFO << "connect mysql successfully.";
     return p;
 }
 
@@ -39,4 +44,9 @@ MYSQL_RES* MySQL::query(std::string sql)
         return nullptr;
     }
     return mysql_use_result(_conn);
+}
+
+MYSQL* MySQL::getConnection()
+{
+    return _conn;
 }
