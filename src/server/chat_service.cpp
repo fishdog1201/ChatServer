@@ -2,6 +2,7 @@
 #include "public.hpp"
 #include <muduo/base/Logging.h>
 #include <string>
+#include <mutex>
 
 ChatService* ChatService::instance()
 {
@@ -30,7 +31,42 @@ MsgHandler ChatService::getHandler(int msgID)
 
 void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
 {
-    LOG_INFO << "Login service";
+    int id = js["id"];
+    std::string pwd = js["password"];
+    json reponse;
+
+    User user = _userModel.query(id);
+    if (user.getId() == -1 || user.getPwd() != pwd) {
+        reponse["msgid"] = LOGIN_MSG_ACK;
+        reponse["errno"] = 1;
+        reponse["msg"] = "Incorrect user id or password.";
+        conn->send(reponse.dump());
+        return;
+    }
+    if (user.getState() == "online") {
+        {
+            std::lock_guard<std::mutex> lck(_connMutex);
+            _userConnMap.insert({id, conn});
+        }
+        reponse["msgid"] = REG_MSG_ACK;
+        reponse["errno"] = 2;
+        reponse["msg"] = "The User has already online.";
+        conn->send(reponse.dump());
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lck(_connMutex);
+        _userConnMap.insert({id, conn});
+    }
+    user.setState("online");
+    _userModel.updateState(user);
+    reponse["msgid"] = LOGIN_MSG_ACK;
+    reponse["errno"] = 0;
+    reponse["id"] = user.getId();
+    reponse["name"] = user.getName();
+    conn->send(reponse.dump());
+    return;
 }
 
 void ChatService::reg(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
@@ -54,4 +90,22 @@ void ChatService::reg(const muduo::net::TcpConnectionPtr& conn, json& js, muduo:
         reponse["errno"] = 1;
         conn->send(reponse.dump());
     }
+    return;
+}
+
+void ChatService::clientCloseException(const muduo::net::TcpConnectionPtr& conn)
+{
+    User user;
+
+    std::lock_guard<std::mutex> lck(_connMutex);
+    for (auto it = _userConnMap.begin(); it != _userConnMap.end(); ++it) {
+        if (it->second == conn) {
+            user.setId(it->first);
+            _userConnMap.erase(it->first);
+            break;
+        }
+    }
+
+    user.setState("offline");
+    _userModel.updateState(user);
 }

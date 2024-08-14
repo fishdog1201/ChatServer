@@ -3,6 +3,7 @@
 #include <muduo/net/TcpConnection.h>
 #include <unordered_map>
 #include <functional>
+#include <mutex>
 #include "json.hpp"
 #include "user_model.hpp"
 
@@ -20,8 +21,12 @@ public:
 
     void reg(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time);
 
+    void clientCloseException(const muduo::net::TcpConnectionPtr& conn);
+
     MsgHandler getHandler(int msgID);
 private:
     std::unordered_map<int, MsgHandler> _msgHandlerMap;
+    std::unordered_map<int, muduo::net::TcpConnectionPtr> _userConnMap;
+    std::mutex _connMutex;
     UserModel _userModel;
 };

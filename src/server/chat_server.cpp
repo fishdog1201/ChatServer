@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include <functional>
 #include <string>
+#include <muduo/base/Logging.h>
 
 using json = nlohmann::json;
 
@@ -25,6 +26,7 @@ void ChatServer::start()
 void ChatServer::onConnection(const muduo::net::TcpConnectionPtr& conn)
 {
     if (!conn->connected()) {
+        ChatService::instance()->clientCloseException(conn);
         conn->shutdown();
     }
 }
@@ -34,8 +36,13 @@ void ChatServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
                            muduo::Timestamp time)
 {
     std::string buf = buffer->retrieveAllAsString();
+    if (buf.size() == 0) {
+        LOG_ERROR << "Empty json.";
+        return;
+    }
     json js = json::parse(buf);
 
     auto msgHandler = ChatService::instance()->getHandler(js["msgId"].get<int>());
     msgHandler(conn, js, time);
+    return;
 }
