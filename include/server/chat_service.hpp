@@ -6,6 +6,7 @@
 #include <mutex>
 #include "json.hpp"
 #include "user_model.hpp"
+#include "offline_msg_model.hpp"
 
 using json = nlohmann::json;
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr&, json&, muduo::Timestamp)>;
@@ -21,6 +22,8 @@ public:
 
     void reg(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time);
 
+    void oneChat(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time);
+
     void clientCloseException(const muduo::net::TcpConnectionPtr& conn);
 
     MsgHandler getHandler(int msgID);
@@ -29,4 +32,5 @@ private:
     std::unordered_map<int, muduo::net::TcpConnectionPtr> _userConnMap;
     std::mutex _connMutex;
     UserModel _userModel;
+    OfflineMsgModel _offlineMsgModel;
 };
