@@ -9,4 +9,6 @@ public:
     User query(int id);
 
     bool updateState(User& user);
+
+    void resetState();
 };

@@ -26,6 +26,8 @@ public:
 
     void clientCloseException(const muduo::net::TcpConnectionPtr& conn);
 
+    void reset();
+
     MsgHandler getHandler(int msgID);
 private:
     std::unordered_map<int, MsgHandler> _msgHandlerMap;

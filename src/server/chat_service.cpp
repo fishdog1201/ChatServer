@@ -135,3 +135,8 @@ void ChatService::oneChat(const muduo::net::TcpConnectionPtr& conn, json& js, mu
 
     return;
 }
+
+void ChatService::reset()
+{
+    _userModel.resetState();
+}

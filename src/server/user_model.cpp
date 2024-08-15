@@ -68,3 +68,19 @@ bool UserModel::updateState(User& user)
 
     return true;
 }
+
+void UserModel::resetState()
+{
+    char sql[1024] = {0};
+    MySQL mysql;
+
+    sprintf(sql, "update user set state = 'offline' where state = 'online'");
+
+    if (mysql.connect()) {
+        if (mysql.update(sql) == false) {
+            LOG_ERROR << "Set user state failed.";
+        }
+    }
+
+    return;
+}
