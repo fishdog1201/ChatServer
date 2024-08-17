@@ -7,6 +7,7 @@
 #include "json.hpp"
 #include "user_model.hpp"
 #include "offline_msg_model.hpp"
+#include "friend_model.hpp"
 
 using json = nlohmann::json;
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr&, json&, muduo::Timestamp)>;
@@ -24,6 +25,8 @@ public:
 
     void oneChat(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time);
 
+    void addFriend(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time);
+
     void clientCloseException(const muduo::net::TcpConnectionPtr& conn);
 
     void reset();
@@ -35,4 +38,5 @@ private:
     std::mutex _connMutex;
     UserModel _userModel;
     OfflineMsgModel _offlineMsgModel;
+    FriendModel _friendModel;
 };
