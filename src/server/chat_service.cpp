@@ -51,7 +51,7 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
     if (user.getId() == -1 || user.getPwd() != pwd) {
         reponse["msgid"] = LOGIN_MSG_ACK;
         reponse["errno"] = 1;
-        reponse["msg"] = "Incorrect user id or password.";
+        reponse["errMsg"] = "Incorrect user id or password.";
         conn->send(reponse.dump());
         return;
     }
@@ -62,7 +62,7 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
         }
         reponse["msgid"] = REG_MSG_ACK;
         reponse["errno"] = 2;
-        reponse["msg"] = "The User has already online.";
+        reponse["errMsg"] = "The User has already online.";
         conn->send(reponse.dump());
         return;
     }
@@ -79,7 +79,7 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
     reponse["name"] = user.getName();
     offlineMsg = _offlineMsgModel.query(user.getId());
     if (!offlineMsg.empty()) {
-        reponse["offlinemsg"] = offlineMsg;
+        reponse["offlineMsg"] = offlineMsg;
         _offlineMsgModel.remove(user.getId());
     }
     std::vector<User> friends = _friendModel.query(user.getId());
@@ -94,7 +94,29 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
         }
         reponse["friends"] = friends_vec;
     }
+    std::vector<Group> groups = _groupModel.queryGroups(user.getId());
+    if (!groups.empty()) {
+        std::vector<std::string> groups_vec;
+        for (Group& group: groups) {
+            json js;
+            js["id"] = group.getId();
+            js["groupName"] = group.getName();
+            js["groupDesc"] = group.getDesc();
 
+            std::vector<std::string> user_vec;
+            for (GroupUser& users: group.getUsers()) {
+                json js;
+                js["id"] = users.getId();
+                js["name"] = users.getName();
+                js["state"] = users.getState();
+                js["role"] = users.getRole();
+                user_vec.emplace_back(js.dump());
+            }
+
+            groups_vec.emplace_back(js.dump());
+        }
+        reponse["groups"] = groups_vec;
+    }
     conn->send(reponse.dump());
     return;
 }
