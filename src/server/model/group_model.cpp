@@ -80,7 +80,7 @@ std::vector<int> GroupModel::queryGroupUsers(int userId, int groupId)
         }
         MYSQL_ROW row;
         while((row = mysql_fetch_row(res)) != nullptr) {
-            ids.emplace_back(row[0]);
+            ids.emplace_back(atoi(row[0]));
         }
         mysql_free_result(res);
     }
