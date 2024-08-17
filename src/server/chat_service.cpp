@@ -21,6 +21,12 @@ ChatService::ChatService()
                                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
     _msgHandlerMap.insert({ADD_FRIEND_MSG, std::bind(&ChatService::addFriend, this, 
                                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({CREATE_GROUP_MSG, std::bind(&ChatService::createGroup, this, 
+                                                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({ADD_GROUP_MSG, std::bind(&ChatService::addGroup, this, 
+                                                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({GROUP_CHAT_MSG, std::bind(&ChatService::groupChat, this, 
+                                                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
 }
 
 MsgHandler ChatService::getHandler(int msgID)
@@ -163,5 +169,45 @@ void ChatService::addFriend(const muduo::net::TcpConnectionPtr& conn, json& js, 
     int friendId = js["friendId"].get<int>();
 
     _friendModel.insert(userId, friendId);
+    return;
+}
+
+void ChatService::createGroup(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
+{
+    int userId = js["id"].get<int>();
+    std::string name = js["name"];
+    std::string desc = js["desc"];
+
+    Group group(-1, name, desc);
+    if (_groupModel.createGroup(group) == false) {
+        LOG_ERROR << "Create group failed!";
+        return;
+    }
+    _groupModel.addGroup(userId, group.getId(), "creator");
+    return;
+}
+
+void ChatService::addGroup(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
+{
+    int userId = js["id"].get<int>();
+    int groupId = js["groupId"].get<int>();
+    _groupModel.addGroup(userId, groupId, "normal");
+    return;
+}
+
+void ChatService::groupChat(const muduo::net::TcpConnectionPtr& conn, json& js, muduo::Timestamp time)
+{
+    int userId = js["id"].get<int>();
+    int groupId = js["groupId"].get<int>();
+    std::vector<int> groupUsers = _groupModel.queryGroupUsers(userId, groupId);
+    std::lock_guard<std::mutex> lock(_connMutex);
+    for (int id: groupUsers) {
+        auto it = _userConnMap.find(id);
+        if (it == _userConnMap.end()) {
+            _offlineMsgModel.insert(id, js.dump());
+        } else {
+            it->second->send(js.dump());
+        }
+    }
     return;
 }

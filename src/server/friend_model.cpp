@@ -9,7 +9,7 @@ void FriendModel::insert(int userId, int friendId)
     MySQL mysql;
     if (mysql.connect()) {
         if (mysql.update(sql) == false) {
-            LOG_ERROR << "Insert offline message to db failed.";
+            LOG_ERROR << "Insert friend to db failed.";
             return;
         }
     }
@@ -27,7 +27,7 @@ std::vector<User> FriendModel::query(int userId)
     if (mysql.connect()) {
         MYSQL_RES* res = mysql.query(sql);
         if (res == nullptr) {
-            LOG_ERROR << "query user by id failed.";
+            LOG_ERROR << "query friends by id failed.";
             return friends;
         }
         MYSQL_ROW row;
