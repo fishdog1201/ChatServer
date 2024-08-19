@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <functional>
 
 #include "json.hpp"
 #include "group.hpp"
@@ -145,7 +146,7 @@ int main(int argc, char** argv)
                             std::thread readTask(readTaskHandler, clientFd);
                             readTask.detach();
 
-                            mainMenu();
+                            mainMenu(clientFd);
                         }
                     }
                 }
@@ -226,7 +227,21 @@ void showCurUserInfo()
 
 void readTaskHandler(int clientFd)
 {
-    return;
+    for (;;) {
+        char buffer[1024] = {0};
+        int len = recv(clientFd, buffer, 1024, 0);
+        if (len == -1 || len == 0) {
+            close(clientFd);
+            exit(-1);
+        }
+
+        json js = json::parse(buffer);
+        if (js["msgId"].get<int>() == ONE_CHAT_MSG) {
+            std::cout << js["time"] << " [" << js["id"] << "]" << js["name"] 
+                      << " said: " << js["message"] << std::endl;
+            continue;
+        }
+    }
 }
 
 std::string getCurrentTime()
@@ -234,7 +249,83 @@ std::string getCurrentTime()
     return "";
 }
 
-void mainMenu()
+void help(int, std::string);
+void chat(int, std::string);
+void addfriend(int, std::string);
+void creategroup(int, std::string);
+void joingroup(int, std::string);
+void groupchat(int, std::string);
+void logout(int, std::string);
+
+std::unordered_map<std::string, std::string> commandMap = {
+    {"help", "Show all the commands, format: help"},
+    {"chat", "peer to peer chat, format: chat:friendId:message"},
+    {"addfriend", "Add friend, format: addfriend:friendId"},
+    {"creategroup", "create group, format: creategroup:groupName:groupDesc"},
+    {"joingroup", "Join group, format: joingroup:groupId"},
+    {"groupchat", "Group chat, format: groupchat:groupId:message"},
+    {"logout", "Logout, format: logout"}
+};
+
+std::unordered_map<std::string, std::function<void(int, std::string)>> commandHandlerMap = {
+    {"help", help},
+    {"chat", chat},
+    {"addfriend", addfriend},
+    {"creategroup", creategroup},
+    {"joingroup", joingroup},
+    {"groupchat", groupchat},
+    {"logout", logout}
+};
+
+void mainMenu(int clientFd)
 {
+    help(clientFd, 0);
+
+    char buffer[1024] = {0};
+    for (;;) {
+        std::cin.getline(buffer, 1024);
+        std::string commandBuffer(buffer);
+        std::string command;
+        int idx = commandBuffer.find(":");
+        if (idx == -1) {
+            command = commandBuffer;
+        } else {
+            command = commandBuffer.substr(0, idx);
+        }
+
+        auto it = commandHandlerMap.find(command);
+        if (it == commandHandlerMap.end()) {
+            std::cerr << "Invalid command!\n";
+            continue;
+        }
+
+        it->second(clientFd, commandBuffer.substr(idx + 1, commandBuffer.size() - idx));
+    }
     return;
 }
+
+void help(int clientFd, std::string str)
+{
+    std::cout << "Show command list >>> " << std::endl;
+    for (auto& p: commandMap) {
+        std::cout << p.first << " :: " << p.second << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+void addfriend(int clientFd, std::string str)
+{
+    int friendId = atoi(str.c_str());
+    json js;
+    js["msgId"] = ADD_FRIEND_MSG;
+    js["id"] = g_currentUser.getId();
+    js["friendId"] = friendId;
+    std::string buffer = js.dump();
+
+    int len = send(clientFd, buffer.c_str(), strlen(buffer.c_str()) + 1, 0);
+    if (len == -1) {
+        std::cerr << "Send add friend msg error -> " << buffer << std::endl;
+    }
+}
+
+// Other function of client omitted
