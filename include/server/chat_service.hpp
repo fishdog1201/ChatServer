@@ -9,6 +9,7 @@
 #include "offline_msg_model.hpp"
 #include "friend_model.hpp"
 #include "group_model.hpp"
+#include "redis.hpp"
 
 using json = nlohmann::json;
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr&, json&, muduo::Timestamp)>;
@@ -36,6 +37,8 @@ public:
 
     void clientCloseException(const muduo::net::TcpConnectionPtr& conn);
 
+    void handleRedisSubscribeMessage(int, std::string);
+
     void reset();
 
     MsgHandler getHandler(int msgID);
@@ -47,4 +50,5 @@ private:
     OfflineMsgModel _offlineMsgModel;
     FriendModel _friendModel;
     GroupModel _groupModel;
+    Redis _redis;
 };

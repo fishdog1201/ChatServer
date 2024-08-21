@@ -27,6 +27,11 @@ ChatService::ChatService()
                                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
     _msgHandlerMap.insert({GROUP_CHAT_MSG, std::bind(&ChatService::groupChat, this, 
                                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    
+    if (_redis.connect()) {
+        _redis.init_notify_handler(std::bind(&ChatService::handleRedisSubscribeMessage, this, std::placeholders::_1,
+                                   std::placeholders::_2));
+    }
 }
 
 MsgHandler ChatService::getHandler(int msgID)
@@ -71,6 +76,10 @@ void ChatService::login(const muduo::net::TcpConnectionPtr& conn, json& js, mudu
         std::lock_guard<std::mutex> lck(_connMutex);
         _userConnMap.insert({id, conn});
     }
+
+    // After login success
+    _redis.subscribe(id);
+
     user.setState("online");
     _userModel.updateState(user);
     reponse["msgid"] = LOGIN_MSG_ACK;
@@ -158,6 +167,8 @@ void ChatService::clientCloseException(const muduo::net::TcpConnectionPtr& conn)
         }
     }
 
+    _redis.unsubscribe(user.getId());
+
     user.setState("offline");
     _userModel.updateState(user);
 }
@@ -174,7 +185,13 @@ void ChatService::oneChat(const muduo::net::TcpConnectionPtr& conn, json& js, mu
         }
     }
 
-    // TODO: storage offline message
+    User user = _userModel.query(peerId);
+    if (user.getState() == "online") {
+        _redis.publish(user.getId(), js.dump());
+        return;
+    }
+
+    //storage offline message
     _offlineMsgModel.insert(peerId, js.dump());
 
     return;
@@ -226,10 +243,30 @@ void ChatService::groupChat(const muduo::net::TcpConnectionPtr& conn, json& js, 
     for (int id: groupUsers) {
         auto it = _userConnMap.find(id);
         if (it == _userConnMap.end()) {
-            _offlineMsgModel.insert(id, js.dump());
+            User user = _userModel.query(id);
+            if (user.getState() == "online") {
+                _redis.publish(id, js.dump());
+            } else {
+                _offlineMsgModel.insert(id, js.dump());
+            }
         } else {
             it->second->send(js.dump());
         }
     }
+    return;
+}
+
+void ChatService::handleRedisSubscribeMessage(int userId, std::string message)
+{
+    json js = json::parse(message.c_str());
+
+    std::lock_guard<std::mutex> lck(_connMutex);
+    auto it = _userConnMap.find(userId); 
+    if (it != _userConnMap.end()) {
+        it->second->send(js.dump());
+        return;
+    }
+
+    _offlineMsgModel.insert(userId, message);
     return;
 }
